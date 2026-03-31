@@ -1,4 +1,4 @@
-import { useLocation, BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useLocation, BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import AuthCallback from "./components/AuthCallback";
 import AuthModal from "./components/AuthModal";
@@ -7,6 +7,7 @@ import PropBharat from "./pages/PropBharat";
 import AgentDashboard from "./pages/AgentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PropertyDetail from "./pages/PropertyDetail";
+import NotFound from "./pages/NotFound";
 import "./App.css";
 
 function AppRouter() {
@@ -18,7 +19,7 @@ function AppRouter() {
       <Route path="/property/:prop_id" element={<PropertyDetail />} />
       <Route path="/agent" element={<AgentDashboard />} />
       <Route path="/admin" element={<AdminDashboard />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
