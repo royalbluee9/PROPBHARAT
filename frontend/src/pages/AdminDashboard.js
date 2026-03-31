@@ -7,24 +7,25 @@ import { Users, Home, FileText, ArrowLeft, Trash2, CheckCircle, XCircle, BarChar
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminDashboard() {
-  const { user, getHeaders } = useAuth();
+  const { user, loading, getHeaders } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("stats");
+  const [tab, setTab] = useState("users");
   const [stats, setStats] = useState({ users: 0, properties: 0, leads: 0 });
   const [users, setUsers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
+    if (loading) return;
     if (!user) { navigate("/"); return; }
     if (user.role !== "admin") { navigate("/"); return; }
     fetchAll();
-  }, [user]);
+  }, [user, loading]);
 
   const fetchAll = async () => {
-    setLoading(true);
+    setDataLoading(true);
     try {
       const [statsRes, usersRes, propsRes, leadsRes] = await Promise.all([
         axios.get(`${API}/admin/stats`, { headers: getHeaders() }),
@@ -37,7 +38,7 @@ export default function AdminDashboard() {
       setProperties(propsRes.data);
       setLeads(leadsRes.data);
     } catch { /* ignore */ }
-    setLoading(false);
+    setDataLoading(false);
   };
 
   const updateRole = async (userId, role) => {
@@ -119,7 +120,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {loading ? <div style={{ textAlign: "center", padding: 48, color: "#888" }}>Loading…</div> : (
+        {dataLoading ? <div style={{ textAlign: "center", padding: 48, color: "#888" }}>Loading…</div> : (
           <>
             {/* Users Tab */}
             {tab === "users" && (

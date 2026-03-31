@@ -9,12 +9,12 @@ const CITIES = ["Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Ahmedabad", "Chenn
 const AMENITIES_LIST = ["gym", "pool", "parking", "security", "lift", "garden", "club", "power"];
 
 export default function AgentDashboard() {
-  const { user, getHeaders } = useAuth();
+  const { user, loading, getHeaders } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState("listings");
   const [properties, setProperties] = useState([]);
   const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editProp, setEditProp] = useState(null);
   const [form, setForm] = useState({ title: "", locality: "", city: "", type: "apartment", bhk: "", bath: "", area: "", price: "", rent: "", status: "ready", cat: "buy", amenities: [], img: "🏠", description: "" });
@@ -22,13 +22,14 @@ export default function AgentDashboard() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
+    if (loading) return;
     if (!user) { navigate("/"); return; }
     if (user.role === "admin") { navigate("/admin"); return; }
     fetchData();
-  }, [user]);
+  }, [user, loading]);
 
   const fetchData = async () => {
-    setLoading(true);
+    setDataLoading(true);
     try {
       const [propsRes, leadsRes] = await Promise.all([
         axios.get(`${API}/agent/properties`, { headers: getHeaders() }),
@@ -37,7 +38,7 @@ export default function AgentDashboard() {
       setProperties(propsRes.data);
       setLeads(leadsRes.data);
     } catch { /* ignore */ }
-    setLoading(false);
+    setDataLoading(false);
   };
 
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -146,7 +147,7 @@ export default function AgentDashboard() {
               </button>
             </div>
 
-            {loading ? <div style={{ textAlign: "center", padding: 40, color: "#888" }}>Loading…</div> : (
+            {dataLoading ? <div style={{ textAlign: "center", padding: 40, color: "#888" }}>Loading…</div> : (
               properties.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "60px 20px", background: "#FFFDF8", borderRadius: 20, border: "1px dashed #DDD5C5" }}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>🏠</div>
