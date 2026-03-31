@@ -1,0 +1,50 @@
+{
+  "summary": "Full backend + frontend testing of PropBharat app. 21/21 backend tests passed. All core features work. One critical routing bug found in Admin/Agent dashboards on direct URL navigation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AdminDashboard / AgentDashboard",
+        "issue": "Direct URL navigation to /admin or /agent redirects to '/' due to auth loading race condition. useEffect runs with user=null before checkAuth() completes. Fix: add 'if (loading) return;' before the redirect checks in useEffect.",
+        "selector": "useEffect in AdminDashboard.js line 20-24, AgentDashboard.js similar",
+        "priority": "HIGH"
+      },
+      {
+        "component": "AdminDashboard",
+        "issue": "Default tab is 'stats' but there's no tab content rendered for 'stats' — the tab area below stat cards is empty until user clicks Users/Properties/Leads. Should default to 'users' tab or render something for stats tab.",
+        "selector": "useState('stats') line 12",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_propbharat.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix AdminDashboard.js and AgentDashboard.js: In useEffect, add 'if (loading) return;' before redirect checks so auth state resolves before redirecting. This fixes direct URL navigation to /admin and /agent.",
+    "Consider defaulting admin dashboard tab to 'users' instead of 'stats'"
+  ],
+  "critical_code_review_comments": [
+    "AdminDashboard.js line 20-24: useEffect depends on [user] but does not check 'loading' - causes race condition on direct URL navigation. Fix: add 'if (loading) return;' as first line in the effect.",
+    "AgentDashboard.js likely has same issue (check useEffect auth guard)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_propbharat.py"
+  ],
+  "success_rate": {
+    "backend": "100% (21/21)",
+    "frontend": "90% - all features work except direct URL navigation to /admin and /agent"
+  },
+  "test_credentials": "admin@propbharat.com / Admin@123",
+  "seed_data_creation": "Backend test created TEST_* user (registered via /api/auth/register) - may need cleanup",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend APIs all working. Frontend core flows verified: homepage, Buy/Rent/Sell tabs, city/type filters, EMI Calculator, Map View (Google Maps with markers), Login modal, admin dashboard (via dropdown nav), Hindi language translation, logout. The one critical bug is direct URL navigation to /admin redirects to homepage due to loading race condition. Test by: navigate to / -> login as admin -> go to /admin URL directly (before auth loads) -> it redirects to /.",
+  "rca_of_issue": "In AdminDashboard.js, useEffect has dependency [user]. When user navigates directly to /admin, React renders the component with user=null (auth not loaded yet), the useEffect fires immediately with user=null, and navigate('/') is called. Fix: in both AdminDashboard and AgentDashboard useEffects, add 'if (loading) return;' as first line, where loading comes from useAuth(). This prevents premature redirect while auth session is being verified from localStorage."
+}
