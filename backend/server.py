@@ -2,15 +2,22 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-import os, logging, uuid, re, requests as http_req
+import os, logging, uuid, re, requests as http_req, time
 from pathlib import Path
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
-import bcrypt
+import bcrypt, cloudinary, cloudinary.utils
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
@@ -68,6 +75,7 @@ class PropertyCreate(BaseModel):
     amenities: List[str] = []
     description: Optional[str] = ""
     img: Optional[str] = "🏠"
+    images: List[str] = []
     lat: Optional[float] = None
     lng: Optional[float] = None
 
@@ -191,6 +199,8 @@ async def complete_profile(body: PhoneUpdate, request: Request):
 @api_router.get("/properties")
 async def get_properties(cat: Optional[str] = None, city: Optional[str] = None,
                           type: Optional[str] = None, search: Optional[str] = None,
+                          bhk: Optional[int] = None, min_price: Optional[int] = None,
+                          max_price: Optional[int] = None,
                           page: int = 1, limit: int = 20):
     query = {}
     if cat and cat not in ["all", "sell"]:
@@ -199,10 +209,23 @@ async def get_properties(cat: Optional[str] = None, city: Optional[str] = None,
         query["city"] = city
     if type:
         query["type"] = type
+    if bhk:
+        query["bhk"] = bhk
     if search:
         query["$or"] = [{"title": {"$regex": search, "$options": "i"}},
                         {"city": {"$regex": search, "$options": "i"}},
                         {"locality": {"$regex": search, "$options": "i"}}]
+    if min_price or max_price:
+        price_cond = {}
+        if min_price: price_cond["$gte"] = min_price
+        if max_price: price_cond["$lte"] = max_price
+        price_filter = {"$or": [{"price": price_cond}, {"rent": price_cond}]}
+        if "$and" in query:
+            query["$and"].append(price_filter)
+        elif "$or" in query:
+            query = {"$and": [query, price_filter]}
+        else:
+            query.update({"$or": [{"price": price_cond}, {"rent": price_cond}]})
     skip = (page - 1) * limit
     total = await db.properties.count_documents(query)
     props = await db.properties.find(query, {"_id": 0}).sort([("featured", -1), ("created_at", -1)]).skip(skip).limit(limit).to_list(limit)
@@ -339,6 +362,44 @@ async def admin_all_leads(request: Request):
 async def root():
     return {"message": "PropBharat API v2.0", "status": "running"}
 
+# ─── CLOUDINARY SIGNATURE ─────────────────────────────────────────────────────
+@api_router.get("/cloudinary/signature")
+async def cloudinary_signature(folder: str = "properties"):
+    ALLOWED = ("properties/", "properties")
+    if folder not in ALLOWED and not folder.startswith("properties/"):
+        raise HTTPException(400, "Invalid folder")
+    ts = int(time.time())
+    params = {"timestamp": ts, "folder": folder}
+    sig = cloudinary.utils.api_sign_request(params, os.environ.get("CLOUDINARY_API_SECRET", ""))
+    return {"signature": sig, "timestamp": ts,
+            "cloud_name": os.environ.get("CLOUDINARY_CLOUD_NAME"),
+            "api_key": os.environ.get("CLOUDINARY_API_KEY"),
+            "folder": folder}
+
+# ─── FAVORITES ROUTES ─────────────────────────────────────────────────────────
+@api_router.get("/favorites")
+async def get_favorites(request: Request):
+    user = await get_current_user(request)
+    favs = await db.favorites.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(500)
+    return favs
+
+@api_router.post("/favorites")
+async def add_favorite(request: Request):
+    user = await get_current_user(request)
+    body = await request.json()
+    prop_id = body.get("prop_id")
+    if not prop_id: raise HTTPException(400, "prop_id required")
+    if not await db.favorites.find_one({"user_id": user["user_id"], "prop_id": prop_id}):
+        await db.favorites.insert_one({"user_id": user["user_id"], "prop_id": prop_id,
+                                        "created_at": datetime.now(timezone.utc)})
+    return {"message": "Added"}
+
+@api_router.delete("/favorites/{prop_id}")
+async def remove_favorite(prop_id: str, request: Request):
+    user = await get_current_user(request)
+    await db.favorites.delete_one({"user_id": user["user_id"], "prop_id": prop_id})
+    return {"message": "Removed"}
+
 # ─── SEED DATA ────────────────────────────────────────────────────────────────
 SEED_PROPERTIES = [
     {"prop_id": "prop_seed_001", "title": "Luxe 3BHK with Sea-Facing Balcony", "locality": "Bandra West", "city": "Mumbai", "type": "apartment", "bhk": 3, "bath": 2, "area": 1480, "price": 18500000, "rent": None, "status": "ready", "cat": "buy", "verified": True, "featured": True, "new": False, "amenities": ["gym", "pool", "parking", "security", "lift"], "owner": "Rajesh Mehta", "owner_id": "seed_owner", "owner_phone": "9876543210", "role": "owner", "posted": 0, "img": "🌊", "lat": 19.059, "lng": 72.831, "description": "Stunning sea-facing apartment in the heart of Bandra West with panoramic ocean views.", "created_at": datetime.now(timezone.utc)},
@@ -377,7 +438,7 @@ async def seed_data():
     await db.users.create_index("user_id")
     await db.user_sessions.create_index("session_token")
     await db.properties.create_index("prop_id")
-    await db.leads.create_index("lead_id")
+    await db.favorites.create_index([("user_id", 1), ("prop_id", 1)], unique=True)
 
 @app.on_event("startup")
 async def startup():
