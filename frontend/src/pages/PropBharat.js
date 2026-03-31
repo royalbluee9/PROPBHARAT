@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import EMICalculator from "../components/EMICalculator";
 import MapView from "../components/MapView";
+import CityPicker from "../components/CityPicker";
 import axios from "axios";
 import { MapPin, Grid, Map, Calculator, LogOut, User, ChevronDown, Heart, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { POPULAR_CITIES, CITIES as ALL_CITIES_LIST } from "../data/cities";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -18,8 +20,6 @@ const T = {
   te: { name: "తెలుగు", script: "తె", hero_title: "భారతదేశంలో మీ కలల ఇంటిని కనుగొనండి", hero_sub: "లీడ్ పోస్ట్ చేయండి. ప్రాపర్టీలు కనుగొనండి.", buy: "కొనండి", sell: "అమ్మండి", rent: "అద్దె", search_ph: "నగరం, ప్రాంతం వెతకండి…", search_btn: "వెతకండి", post_btn: "+ లీడ్ పోస్ట్", popular_cities: "ప్రసిద్ధ నగరాలు", all_india: "మొత్తం భారతదేశం", prop_type: "ప్రాపర్టీ రకం", all_types: "అన్నీ", apartment: "అపార్ట్మెంట్", villa: "విల్లా", plot: "ప్లాట్", office: "ఆఫీస్", shop: "దుకాణం", penthouse: "పెంట్‌హౌస్", any: "ఏదైనా", verified: "ధృవీకరించబడింది", featured: "ఫీచర్డ్", ready: "సిద్ధం", uc: "నిర్మాణంలో", new_launch: "కొత్తది", contact: "యజమానిని సంప్రదించండి", whatsapp: "వాట్సాప్", view_more: "వివరాలు", per_mo: "/నెల", sqft: "చ.అ.", beds: "బెడ్", baths: "బాత్", negotiable: "చర్చించదగినది", posted: "పోస్ట్", days_ago: "రోజుల క్రితం", today: "ఈరోజు", yesterday: "నిన్న", post_title: "లీడ్ పోస్ట్ చేయండి", post_sub: "లక్షలాది మందిని చేరండి", full_name: "పూర్తి పేరు *", phone: "మొబైల్ *", city_label: "నగరం *", locality_label: "ప్రాంతం", prop_type_label: "ప్రాపర్టీ", looking_to: "నేను కోరుకుంటున్నాను *", area_sqft: "విస్తీర్ణం", price_label: "ధర (₹)", bedrooms: "బెడ్‌రూమ్లు", furnishing: "ఫర్నిషింగ్", unfurnished: "ఫర్నీచర్ లేదు", semi: "సెమీ", full: "పూర్తి", desc_label: "వివరణ", submit: "సమర్పించండి", success_title: "విజయం!", success_msg: "24 గంటల్లో సంప్రదిస్తారు।", close: "మూసివేయండి", amenities: "సౌకర్యాలు", gym: "జిమ్", pool: "పూల్", parking: "పార్కింగ్", security: "భద్రత", lift: "లిఫ్ట్", garden: "గార్డెన్", club: "క్లబ్", power: "పవర్", stats_props: "ప్రాపర్టీలు", stats_cities: "నగరాలు", stats_users: "వినియోగదారులు", trust: "అత్యంత విశ్వసనీయ వేదిక", clear: "ఫిల్టర్లు తొలగించు", no_results: "ప్రాపర్టీలు కనుగొనబడలేదు।", crore: "కోటి", lakh: "లక్ష", owner: "యజమాని", agent: "ఏజెంట్", contact_modal_title: "వివరాలు పొందండి", contact_msg: "లాగిన్ చేయండి!", call_now: "కాల్ చేయండి", copyright: "© 2025 PropBharat", lang_label: "భాష", login: "లాగిన్", logout: "లాగౌట్", my_listings: "నా లిస్టింగ్లు", admin: "అడ్మిన్", emi_calc: "ఈఎమ్ఐ", map_view: "మ్యాప్", grid_view: "గ్రిడ్", register: "నమోదు" },
   bn: { name: "বাংলা", script: "বা", hero_title: "ভারতে আপনার স্বপ্নের বাড়ি খুঁজুন", hero_sub: "লিড পোস্ট করুন। সম্পত্তি আবিষ্কার করুন।", buy: "কিনুন", sell: "বিক্রি করুন", rent: "ভাড়া", search_ph: "শহর, এলাকা খুঁজুন…", search_btn: "খুঁজুন", post_btn: "+ লিড পোস্ট", popular_cities: "জনপ্রিয় শহর", all_india: "সমগ্র ভারত", prop_type: "সম্পত্তির ধরন", all_types: "সব", apartment: "অ্যাপার্টমেন্ট", villa: "ভিলা", plot: "প্লট", office: "অফিস", shop: "দোকান", penthouse: "পেন্টহাউস", any: "যেকোনো", verified: "যাচাইকৃত", featured: "বিশেষ", ready: "প্রস্তুত", uc: "নির্মাণাধীন", new_launch: "নতুন", contact: "মালিকের সাথে", whatsapp: "হোয়াটসঅ্যাপ", view_more: "বিস্তারিত", per_mo: "/মাস", sqft: "বর্গফুট", beds: "বেড", baths: "বাথ", negotiable: "আলোচনাযোগ্য", posted: "পোস্ট", days_ago: "দিন আগে", today: "আজ", yesterday: "গতকাল", post_title: "লিড পোস্ট করুন", post_sub: "লক্ষ লক্ষ মানুষের কাছে পৌঁছান", full_name: "পুরো নাম *", phone: "মোবাইল *", city_label: "শহর *", locality_label: "এলাকা", prop_type_label: "সম্পত্তি", looking_to: "আমি চাই *", area_sqft: "আয়তন", price_label: "মূল্য (₹)", bedrooms: "বেডরুম", furnishing: "আসবাব", unfurnished: "আসবাব ছাড়া", semi: "আধা", full: "সম্পূর্ণ", desc_label: "বিবরণ", submit: "জমা দিন", success_title: "সফল!", success_msg: "২৪ ঘণ্টায় যোগাযোগ।", close: "বন্ধ", amenities: "সুবিধা", gym: "জিম", pool: "পুল", parking: "পার্কিং", security: "নিরাপত্তা", lift: "লিফট", garden: "বাগান", club: "ক্লাব", power: "পাওয়ার", stats_props: "সম্পত্তি", stats_cities: "শহর", stats_users: "ব্যবহারকারী", trust: "সবচেয়ে বিশ্বস্ত প্ল্যাটফর্ম", clear: "ফিল্টার মুছুন", no_results: "কোনো সম্পত্তি পাওয়া যায়নি।", crore: "কোটি", lakh: "লক্ষ", owner: "মালিক", agent: "এজেন্ট", contact_modal_title: "মালিকের বিবরণ", contact_msg: "লগিন করুন!", call_now: "কল করুন", copyright: "© 2025 PropBharat", lang_label: "ভাষা", login: "লগিন", logout: "লগআউট", my_listings: "আমার", admin: "অ্যাডমিন", emi_calc: "ইএমআই", map_view: "মানচিত্র", grid_view: "গ্রিড", register: "নিবন্ধন" },
 };
-
-const CITIES = ["Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Ahmedabad", "Chennai", "Kolkata", "Pune", "Jaipur", "Surat", "Lucknow", "Nagpur", "Indore", "Bhopal", "Visakhapatnam", "Patna", "Vadodara", "Coimbatore", "Kochi", "Chandigarh", "Noida", "Gurugram", "Thane", "Navi Mumbai", "Nashik", "Mysuru", "Rajkot", "Jodhpur", "Udaipur", "Varanasi"];
 
 const AMENITY_META = { gym: { icon: "🏋️", key: "gym" }, pool: { icon: "🏊", key: "pool" }, parking: { icon: "🚗", key: "parking" }, security: { icon: "🛡️", key: "security" }, lift: { icon: "🛗", key: "lift" }, garden: { icon: "🌿", key: "garden" }, club: { icon: "🎱", key: "club" }, power: { icon: "⚡", key: "power" } };
 
@@ -264,12 +264,33 @@ export default function PropBharat() {
               </button>
             ))}
           </div>
-          <div className={mounted ? "pb-anim-in" : ""} style={{ display: "flex", gap: 10, maxWidth: 660, margin: "0 auto", animationDelay: ".2s" }}>
-            <input className="pb-input" placeholder={t.search_ph} value={search} onChange={e => setSearch(e.target.value)}
-              style={{ flex: 1, fontSize: 15, padding: "14px 18px", borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,.2)", background: "#FFFDF8" }} data-testid="search-input" />
-            <button className="pb-btn pb-btn-accent" style={{ background: "linear-gradient(135deg,#C84B31,#8B1A08)", padding: "14px 28px", fontSize: 15, borderRadius: 12, flexShrink: 0, boxShadow: "0 4px 16px rgba(200,75,49,.5)" }} data-testid="search-btn">
-              {t.search_btn}
-            </button>
+          <div className={mounted ? "pb-anim-in" : ""} style={{ maxWidth: 740, margin: "0 auto", animationDelay: ".2s" }} data-testid="hero-search-bar">
+            {/* Split search: City picker + keyword search + button */}
+            <div style={{ display: "flex", background: "#FFFDF8", borderRadius: 14, overflow: "visible", boxShadow: "0 6px 28px rgba(0,0,0,.28)", alignItems: "stretch", position: "relative" }}>
+              {/* City picker — left section */}
+              <div style={{ flexShrink: 0, borderRight: "1.5px solid #EDE5D5", position: "relative" }}>
+                <CityPicker value={cityF} onChange={v => { setCityF(v); setPage(1); }} placeholder="All India" />
+              </div>
+              {/* Keyword search — middle */}
+              <input
+                className="pb-input"
+                placeholder={t.search_ph}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && fetchProperties()}
+                style={{ flex: 1, fontSize: 14.5, padding: "14px 18px", border: "none", background: "transparent", outline: "none", minWidth: 0 }}
+                data-testid="search-input"
+              />
+              {/* Search button — right */}
+              <button
+                className="pb-btn pb-btn-accent"
+                onClick={fetchProperties}
+                style={{ background: "linear-gradient(135deg,#C84B31,#8B1A08)", padding: "12px 28px", fontSize: 15, flexShrink: 0, margin: 5, borderRadius: 10, boxShadow: "0 4px 16px rgba(200,75,49,.5)" }}
+                data-testid="search-btn"
+              >
+                {t.search_btn}
+              </button>
+            </div>
           </div>
           <div className={mounted ? "pb-anim-in" : ""} style={{ display: "flex", justifyContent: "center", gap: 40, marginTop: 40, animationDelay: ".28s" }}>
             {[["75K+", t.stats_props], ["220+", t.stats_cities], ["12L+", t.stats_users]].map(([n, l]) => (
@@ -282,16 +303,26 @@ export default function PropBharat() {
         </div>
       </div>
 
-      {/* CITY STRIP */}
-      <div style={{ background: "#FFFDF8", borderBottom: "1px solid #EDE5D5", padding: "14px 20px", overflowX: "auto" }}>
-        <div style={{ maxWidth: 1240, margin: "0 auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#999", letterSpacing: .8, whiteSpace: "nowrap", marginRight: 4 }}>
-            <MapPin size={12} style={{ display: "inline" }} /> {t.popular_cities}:
+      {/* CITY STRIP — popular quick-select + full CityPicker */}
+      <div style={{ background: "#FFFDF8", borderBottom: "1px solid #EDE5D5", padding: "12px 20px" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto", display: "flex", gap: 7, alignItems: "center", overflowX: "auto", scrollbarWidth: "none" }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: "#BBB", letterSpacing: .9, whiteSpace: "nowrap", marginRight: 2, flexShrink: 0 }}>
+            <MapPin size={11} style={{ display: "inline", verticalAlign: "middle" }} /> {t.popular_cities}:
           </span>
           <button className={`pb-chip ${cityF === "" ? "pb-chip-active" : "pb-chip-outline"}`} onClick={() => setCityF("")} data-testid="city-all">{t.all_india}</button>
-          {CITIES.slice(0, 15).map(c => (
-            <button key={c} className={`pb-chip ${cityF === c ? "pb-chip-active" : "pb-chip-outline"}`} onClick={() => setCityF(cityF === c ? "" : c)} data-testid={`city-${c}`}>{c}</button>
+          {POPULAR_CITIES.map(c => (
+            <button key={c} className={`pb-chip ${cityF === c ? "pb-chip-active" : "pb-chip-outline"}`} onClick={() => { setCityF(cityF === c ? "" : c); setPage(1); }} data-testid={`city-${c}`} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+              {c}
+            </button>
           ))}
+          {/* "More Cities" opens full CityPicker */}
+          <div style={{ flexShrink: 0, marginLeft: 4 }}>
+            <CityPicker
+              value={cityF}
+              onChange={v => { setCityF(v); setPage(1); }}
+              placeholder="More Cities"
+            />
+          </div>
         </div>
       </div>
 
@@ -542,10 +573,51 @@ function PropertyCard({ p, t, accent, i, onContact, onDetail, isFav, onToggleFav
   );
 }
 
+/* Inline city search — used inside modals where full CityPicker overlay would clip */
+function CitySearchInput({ value, onChange, placeholder }) {
+  const [q, setQ] = useState(value || "");
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const filtered = q.length >= 1
+    ? ALL_CITIES_LIST.filter(c => c.toLowerCase().includes(q.toLowerCase())).slice(0, 12)
+    : [];
+  return (
+    <div ref={ref} style={{ position: "relative" }} data-testid="city-search-input-wrap">
+      <input
+        className="pb-input"
+        value={q}
+        onChange={e => { setQ(e.target.value); onChange(""); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder || "Type city name…"}
+        data-testid="lead-city"
+        autoComplete="off"
+        style={{ paddingLeft: 36 }}
+      />
+      <MapPin size={14} color="#C84B31" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+      {open && filtered.length > 0 && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#FFFDF8", border: "1.5px solid #EDE5D5", borderRadius: 12, zIndex: 700, boxShadow: "0 8px 24px rgba(0,0,0,.14)", maxHeight: 220, overflowY: "auto" }}>
+          {filtered.map(c => (
+            <div key={c} onMouseDown={() => { setQ(c); onChange(c); setOpen(false); }}
+              style={{ padding: "9px 14px", cursor: "pointer", fontSize: 13.5, color: "#1C1C1C" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#F5F0E8"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              {c}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* POST LEAD MODAL */
 function PostModal({ t, form, setForm, formOk, formErr, accent, submit, close }) {
-  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  return (
+  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));  return (
     <div className="pb-modal-bg" onClick={close}>
       <div className="pb-modal" style={{ maxWidth: 560, width: "100%", maxHeight: "92vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <div style={{ background: "linear-gradient(135deg,#C84B31,#8B1A08)", padding: "26px 28px 22px", position: "relative" }}>
@@ -586,10 +658,7 @@ function PostModal({ t, form, setForm, formOk, formErr, accent, submit, close })
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: "#888", letterSpacing: .8, display: "block", marginBottom: 6 }}>{t.city_label.toUpperCase()}</label>
-                  <select className="pb-input pb-select" value={form.city} onChange={e => upd("city", e.target.value)} data-testid="lead-city">
-                    <option value="">-- Select City --</option>
-                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <CitySearchInput value={form.city} onChange={v => upd("city", v)} placeholder="Select City" />
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: "#888", letterSpacing: .8, display: "block", marginBottom: 6 }}>{t.locality_label.toUpperCase()}</label>

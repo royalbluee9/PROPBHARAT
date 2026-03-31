@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ImageUpload from "../components/ImageUpload";
+import CityPicker from "../components/CityPicker";
 import axios from "axios";
 import { Plus, Trash2, Edit3, ArrowLeft, Home, FileText } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const CITIES = ["Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Ahmedabad", "Chennai", "Kolkata", "Pune", "Jaipur", "Surat", "Lucknow", "Nagpur", "Noida", "Gurugram", "Thane"];
+
 const AMENITIES_LIST = ["gym", "pool", "parking", "security", "lift", "garden", "club", "power"];
 
 export default function AgentDashboard() {
@@ -241,11 +242,11 @@ export default function AgentDashboard() {
             <div style={{ padding: "24px 28px", display: "grid", gap: 14 }}>
               <input className="pb-input" placeholder="Property Title *" value={form.title} onChange={e => upd("title", e.target.value)} data-testid="prop-title" />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <select className="pb-input pb-select" value={form.city} onChange={e => upd("city", e.target.value)} data-testid="prop-city">
-                  <option value="">Select City *</option>
-                  {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <input className="pb-input" placeholder="Locality *" value={form.locality} onChange={e => upd("locality", e.target.value)} />
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: .8, display: "block", marginBottom: 5 }}>CITY *</label>
+                  <CityPicker value={form.city} onChange={v => upd("city", v)} placeholder="Select city…" />
+                </div>
+                <input className="pb-input" placeholder="Locality *" value={form.locality} onChange={e => upd("locality", e.target.value)} style={{ alignSelf: "end" }} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                 <select className="pb-input pb-select" value={form.type} onChange={e => upd("type", e.target.value)}>
