@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
-import { Users, Home, FileText, ArrowLeft, Trash2, CheckCircle, XCircle, BarChart2 } from "lucide-react";
+import { Users, Home, FileText, ArrowLeft, Trash2, CheckCircle, XCircle } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -17,14 +17,7 @@ export default function AdminDashboard() {
   const [dataLoading, setDataLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
-  useEffect(() => {
-    if (loading) return;
-    if (!user) { navigate("/"); return; }
-    if (user.role !== "admin") { navigate("/"); return; }
-    fetchAll();
-  }, [user, loading]);
-
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setDataLoading(true);
     try {
       const [statsRes, usersRes, propsRes, leadsRes] = await Promise.all([
@@ -37,9 +30,18 @@ export default function AdminDashboard() {
       setUsers(usersRes.data);
       setProperties(propsRes.data);
       setLeads(leadsRes.data);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("[AdminDashboard] Failed to load data:", err?.message);
+    }
     setDataLoading(false);
-  };
+  }, [getHeaders]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { navigate("/"); return; }
+    if (user.role !== "admin") { navigate("/"); return; }
+    fetchAll();
+  }, [user, loading, navigate, fetchAll]);
 
   const updateRole = async (userId, role) => {
     try {

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import axios from "axios";
-import { Upload, X, ImageIcon } from "lucide-react";
+import { Upload, X } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -60,7 +60,7 @@ export default function ImageUpload({ images = [], onChange }) {
       {images.length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           {images.map((url, i) => (
-            <div key={i} style={{ position: "relative", width: 80, height: 80 }}>
+            <div key={url} style={{ position: "relative", width: 80, height: 80 }}>
               <img src={url} alt="" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 10, border: "1.5px solid #EDE5D5" }} />
               <button onClick={() => removeImage(i)}
                 style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, background: "#C84B31", border: "none", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }} data-testid={`remove-img-${i}`}>

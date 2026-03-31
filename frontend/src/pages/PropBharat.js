@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import EMICalculator from "../components/EMICalculator";
 import MapView from "../components/MapView";
 import axios from "axios";
-import { MapPin, Grid, Map, Calculator, LogOut, User, ChevronDown } from "lucide-react";
+import { MapPin, Grid, Map, Calculator, LogOut, User, ChevronDown, Heart, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -37,16 +37,24 @@ const postedLabel = (d, t) => { if (d === 0) return t.today; if (d === 1) return
 
 export default function PropBharat() {
   const navigate = useNavigate();
-  const { user, logout, setShowAuthModal, requireAuth } = useAuth();
+  const { user, logout, setShowAuthModal, requireAuth, getHeaders } = useAuth();
   const [lang, setLang] = useState("en");
   const [tab, setTab] = useState("buy");
   const [search, setSearch] = useState("");
   const [cityF, setCityF] = useState("");
   const [typeF, setTypeF] = useState("");
+  const [bhkF, setBhkF] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 12;
   const [showPost, setShowPost] = useState(false);
   const [contactProp, setContactProp] = useState(null);
   const [langOpen, setLangOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem("pb_favorites") || "[]"));
   const [form, setForm] = useState({ name: "", phone: "", city: "", locality: "", propType: "apartment", leadType: "buy", area: "", price: "", beds: "", furnishing: "unfurnished", desc: "" });
   const [formOk, setFormOk] = useState(false);
   const [formErr, setFormErr] = useState("");
@@ -73,19 +81,29 @@ export default function PropBharat() {
   const fetchProperties = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { page, limit: LIMIT };
       if (tab !== "sell") params.cat = tab;
       if (cityF) params.city = cityF;
       if (typeF) params.type = typeF;
       if (search) params.search = search;
+      if (bhkF) params.bhk = parseInt(bhkF);
+      if (minPrice) params.min_price = parseInt(minPrice.replace(/,/g, ""));
+      if (maxPrice) params.max_price = parseInt(maxPrice.replace(/,/g, ""));
       const res = await axios.get(`${API}/properties`, { params });
       setProperties(res.data.properties || []);
+      setTotal(res.data.total || 0);
     } catch {
       setProperties([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [tab, cityF, typeF, search]);
+  }, [tab, cityF, typeF, search, bhkF, minPrice, maxPrice, page]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [tab, cityF, typeF, search, bhkF, minPrice, maxPrice]);
 
   useEffect(() => { fetchProperties(); }, [fetchProperties]);
 
@@ -94,8 +112,7 @@ export default function PropBharat() {
     if (!/^[6-9]\d{9}$/.test(form.phone.replace(/\s/g, ""))) { setFormErr("Enter a valid 10-digit Indian mobile number."); return; }
     setFormErr("");
     try {
-      const token = localStorage.getItem("pb_session_token");
-      await axios.post(`${API}/leads`, { name: form.name, phone: form.phone, city: form.city, locality: form.locality, prop_type: form.propType, lead_type: form.leadType, area: form.area, price: form.price, beds: form.beds, furnishing: form.furnishing, desc: form.desc }, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      await axios.post(`${API}/leads`, { name: form.name, phone: form.phone, city: form.city, locality: form.locality, prop_type: form.propType, lead_type: form.leadType, area: form.area, price: form.price, beds: form.beds, furnishing: form.furnishing, desc: form.desc }, { headers: getHeaders() });
       setFormOk(true);
       setTimeout(() => { setShowPost(false); setFormOk(false); setForm({ name: "", phone: "", city: "", locality: "", propType: "apartment", leadType: "buy", area: "", price: "", beds: "", furnishing: "unfurnished", desc: "" }); }, 4000);
     } catch { setFormErr("Failed to submit. Please try again."); }
@@ -105,6 +122,24 @@ export default function PropBharat() {
     if (!user) { setContactProp(prop); setShowAuthModal(true); return; }
     setContactProp(prop);
   };
+
+  const toggleFav = (propId) => {
+    const newFavs = favorites.includes(propId)
+      ? favorites.filter(f => f !== propId)
+      : [...favorites, propId];
+    setFavorites(newFavs);
+    localStorage.setItem("pb_favorites", JSON.stringify(newFavs));
+    if (user) {
+      const headers = getHeaders();
+      if (favorites.includes(propId)) {
+        axios.delete(`${API}/favorites/${propId}`, { headers }).catch(err => console.error("[Favorites] Remove failed:", err?.message));
+      } else {
+        axios.post(`${API}/favorites`, { prop_id: propId }, { headers }).catch(err => console.error("[Favorites] Add failed:", err?.message));
+      }
+    }
+  };
+
+  const clearAllFilters = () => { setTypeF(""); setCityF(""); setSearch(""); setBhkF(""); setMinPrice(""); setMaxPrice(""); };
 
   const TAB_ACCENT = { buy: "#C84B31", rent: "#1B4F72", sell: "#1D6A43" };
   const accent = TAB_ACCENT[tab];
@@ -263,17 +298,21 @@ export default function PropBharat() {
       {/* MAIN */}
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "28px 20px" }}>
         {/* Filter Row */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: "#888", letterSpacing: .5 }}>{t.prop_type}:</span>
           {[["", "all_types"], ["apartment", "apartment"], ["villa", "villa"], ["plot", "plot"], ["office", "office"], ["shop", "shop"], ["penthouse", "penthouse"]].map(([v, k]) => (
             <button key={v} className={`pb-chip ${typeF === v ? "pb-chip-active" : "pb-chip-outline"}`} onClick={() => setTypeF(v)} data-testid={`type-${v || "all"}`}>{t[k]}</button>
           ))}
-          {(typeF || cityF || search) && (
-            <button className="pb-chip" onClick={() => { setTypeF(""); setCityF(""); setSearch(""); }}
+          {(typeF || cityF || search || bhkF || minPrice || maxPrice) && (
+            <button className="pb-chip" onClick={clearAllFilters}
               style={{ background: "#FFF0EC", border: "1.5px solid #F5B8A8", color: "#C84B31" }}>✕ {t.clear}</button>
           )}
-          {/* Map/Grid toggle */}
+          {/* Advanced filters toggle + Map/Grid toggle */}
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <button className="pb-btn" onClick={() => setShowAdvanced(v => !v)} data-testid="advanced-filter-btn"
+              style={{ background: showAdvanced ? "#1C1C1C" : "transparent", color: showAdvanced ? "#fff" : "#555", border: "1.5px solid #DDD5C5", padding: "7px 14px", fontSize: 13, borderRadius: 9, display: "flex", alignItems: "center", gap: 6 }}>
+              <SlidersHorizontal size={14} /> <span className="pb-hide-mob">Filters</span>
+            </button>
             <button className="pb-btn" onClick={() => setShowMap(false)} data-testid="grid-view-btn"
               style={{ background: !showMap ? "#1C1C1C" : "transparent", color: !showMap ? "#fff" : "#555", border: "1.5px solid #DDD5C5", padding: "7px 14px", fontSize: 13, borderRadius: 9, display: "flex", alignItems: "center", gap: 6 }}>
               <Grid size={14} /> <span className="pb-hide-mob">{t.grid_view}</span>
@@ -285,10 +324,43 @@ export default function PropBharat() {
           </div>
         </div>
 
+        {/* Advanced Filters Panel */}
+        {showAdvanced && (
+          <div style={{ background: "#FFFDF8", border: "1px solid #EDE5D5", borderRadius: 16, padding: "16px 20px", marginBottom: 16, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }} data-testid="advanced-filters">
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: .8, display: "block", marginBottom: 6 }}>BHK</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {["", "1", "2", "3", "4", "5"].map(v => (
+                  <button key={v} onClick={() => setBhkF(v)} data-testid={`bhk-filter-${v || "any"}`}
+                    style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid ${bhkF === v ? accent : "#DDD5C5"}`, background: bhkF === v ? accent : "#FEFCF7", color: bhkF === v ? "#fff" : "#555", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
+                    {v || "Any"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: .8, display: "block", marginBottom: 6 }}>MIN PRICE (₹)</label>
+              <input className="pb-input" placeholder="e.g. 2000000" value={minPrice} onChange={e => setMinPrice(e.target.value)} type="number"
+                style={{ width: 140, fontSize: 13, padding: "8px 12px" }} data-testid="min-price-input" />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: .8, display: "block", marginBottom: 6 }}>MAX PRICE (₹)</label>
+              <input className="pb-input" placeholder="e.g. 10000000" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} type="number"
+                style={{ width: 140, fontSize: 13, padding: "8px 12px" }} data-testid="max-price-input" />
+            </div>
+            <button className="pb-btn" onClick={clearAllFilters}
+              style={{ background: "#FFF0EC", border: "1.5px solid #F5B8A8", color: "#C84B31", padding: "9px 16px", fontSize: 13, borderRadius: 9 }}>
+              ✕ Reset All
+            </button>
+          </div>
+        )}
+
         <div style={{ fontSize: 13, color: "#999", marginBottom: 20, fontWeight: 500 }}>
-          <span style={{ color: "#1C1C1C", fontWeight: 700, fontSize: 16 }}>{loading ? "…" : properties.length}</span> properties
+          <span style={{ color: "#1C1C1C", fontWeight: 700, fontSize: 16 }}>{loading ? "…" : total}</span> properties
           {cityF && <span style={{ color: accent, fontWeight: 700 }}> in {cityF}</span>}
           {typeF && <span style={{ color: "#888" }}> · {t[typeF]}</span>}
+          {bhkF && <span style={{ color: "#888" }}> · {bhkF} BHK</span>}
+          {total > LIMIT && <span style={{ color: "#888" }}> · Page {page} of {Math.ceil(total / LIMIT)}</span>}
         </div>
 
         {/* Map View */}
@@ -314,10 +386,47 @@ export default function PropBharat() {
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 22 }}>
               {properties.map((p, i) => (
-                <PropertyCard key={p.prop_id || p.id || i} p={p} t={t} accent={accent} i={i} onContact={() => handleContact(p)} />
+                <PropertyCard key={p.prop_id || i} p={p} t={t} accent={accent} i={i}
+                  onContact={() => handleContact(p)}
+                  onDetail={() => navigate(`/property/${p.prop_id}`)}
+                  isFav={favorites.includes(p.prop_id)}
+                  onToggleFav={() => toggleFav(p.prop_id)} />
               ))}
             </div>
           )
+        )}
+
+        {/* Pagination */}
+        {!showMap && total > LIMIT && (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 32, marginBottom: 8 }} data-testid="pagination">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: 10, border: "1.5px solid #DDD5C5", background: page === 1 ? "#F5F0E8" : "#FFFDF8", cursor: page === 1 ? "not-allowed" : "pointer", fontSize: 13, color: page === 1 ? "#BBB" : "#555", fontFamily: "inherit" }} data-testid="prev-page-btn">
+              <ChevronLeft size={15} /> Prev
+            </button>
+            {Array.from({ length: Math.min(5, Math.ceil(total / LIMIT)) }, (_, i) => {
+              const totalPages = Math.ceil(total / LIMIT);
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (page <= 3) {
+                pageNum = i + 1;
+              } else if (page >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = page - 2 + i;
+              }
+              return (
+                <button key={pageNum} onClick={() => setPage(pageNum)}
+                  style={{ width: 38, height: 38, borderRadius: 9, border: `1.5px solid ${page === pageNum ? accent : "#DDD5C5"}`, background: page === pageNum ? accent : "#FFFDF8", color: page === pageNum ? "#fff" : "#555", cursor: "pointer", fontSize: 13, fontWeight: page === pageNum ? 700 : 500, fontFamily: "inherit" }} data-testid={`page-btn-${pageNum}`}>
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button onClick={() => setPage(p => Math.min(Math.ceil(total / LIMIT), p + 1))} disabled={page >= Math.ceil(total / LIMIT)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: 10, border: "1.5px solid #DDD5C5", background: page >= Math.ceil(total / LIMIT) ? "#F5F0E8" : "#FFFDF8", cursor: page >= Math.ceil(total / LIMIT) ? "not-allowed" : "pointer", fontSize: 13, color: page >= Math.ceil(total / LIMIT) ? "#BBB" : "#555", fontFamily: "inherit" }} data-testid="next-page-btn">
+              Next <ChevronRight size={15} />
+            </button>
+          </div>
         )}
 
         {/* CTA Banner */}
@@ -359,20 +468,30 @@ export default function PropBharat() {
 }
 
 /* PROPERTY CARD */
-function PropertyCard({ p, t, accent, i, onContact }) {
+function PropertyCard({ p, t, accent, i, onContact, onDetail, isFav, onToggleFav }) {
   const BG = { buy: "linear-gradient(135deg,#FFF0E8,#FDEBD8)", rent: "linear-gradient(135deg,#E8F0FF,#D8E8FD)", sell: "linear-gradient(135deg,#E8FFF0,#D8FDE8)" };
   const bg = p.cat === "buy" ? BG.buy : p.cat === "rent" ? BG.rent : BG.sell;
+  const hasImg = p.images && p.images.length > 0;
   return (
-    <div className="pb-card pb-anim-in" style={{ animationDelay: `${i * .04}s` }} data-testid={`property-card-${p.prop_id || i}`}>
-      <div style={{ height: 168, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 80, position: "relative" }}>
-        {p.img || "🏠"}
+    <div className="pb-card pb-anim-in" style={{ animationDelay: `${i * .04}s`, cursor: "pointer" }}
+      onClick={onDetail} data-testid={`property-card-${p.prop_id || i}`}>
+      <div style={{ height: 168, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 80, position: "relative", overflow: "hidden" }}>
+        {hasImg
+          ? <img src={p.images[0]} alt={p.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : (p.img || "🏠")}
         <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 5, flexWrap: "wrap" }}>
           {p.featured && <span className="pb-tag" style={{ background: "#C84B31", color: "#fff" }}>⭐ {t.featured}</span>}
           {p.new && <span className="pb-tag" style={{ background: "#1B4F72", color: "#fff" }}>✨ NEW</span>}
           {p.verified && <span className="pb-tag" style={{ background: "rgba(27,106,67,.9)", color: "#fff" }}>✓ {t.verified}</span>}
         </div>
-        <div style={{ position: "absolute", top: 12, right: 12 }}>
+        <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 6 }}>
           <span className="pb-tag" style={{ background: p.cat === "buy" ? "#C84B31" : p.cat === "rent" ? "#1B4F72" : "#1D6A43", color: "#fff" }}>{t[p.cat]}</span>
+          {/* Heart / Fav */}
+          <button onClick={e => { e.stopPropagation(); onToggleFav(); }}
+            style={{ width: 30, height: 30, borderRadius: "50%", background: isFav ? "#C84B31" : "rgba(255,255,255,.85)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+            data-testid={`fav-btn-${p.prop_id}`}>
+            <Heart size={15} fill={isFav ? "#fff" : "none"} color={isFav ? "#fff" : "#C84B31"} />
+          </button>
         </div>
         <div style={{ position: "absolute", bottom: 12, right: 12 }}>
           <span className="pb-tag" style={{ background: p.status === "ready" ? "rgba(27,106,67,.85)" : "rgba(140,90,0,.85)", color: "#fff" }}>
@@ -403,10 +522,16 @@ function PropertyCard({ p, t, accent, i, onContact }) {
             <div style={{ fontSize: 21, fontWeight: 800, color: accent, lineHeight: 1, fontFamily: "'Noto Serif',serif" }}>{fmt(p.price, p.rent, t)}</div>
             <div style={{ fontSize: 11, color: "#BBB", marginTop: 2 }}>{t.negotiable}</div>
           </div>
-          <button className="pb-btn pb-btn-accent" onClick={e => { e.stopPropagation(); onContact(); }}
-            style={{ background: `linear-gradient(135deg,${accent},${accent}CC)`, padding: "9px 18px", fontSize: 13, boxShadow: `0 3px 12px ${accent}55` }} data-testid={`contact-btn-${p.prop_id || i}`}>
-            {t.contact}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="pb-btn" onClick={e => { e.stopPropagation(); onDetail(); }}
+              style={{ background: "#F5F0E8", border: "1.5px solid #DDD5C5", color: "#555", padding: "8px 14px", fontSize: 12, borderRadius: 9 }} data-testid={`view-details-btn-${p.prop_id}`}>
+              {t.view_more}
+            </button>
+            <button className="pb-btn pb-btn-accent" onClick={e => { e.stopPropagation(); onContact(); }}
+              style={{ background: `linear-gradient(135deg,${accent},${accent}CC)`, padding: "9px 16px", fontSize: 13, boxShadow: `0 3px 12px ${accent}55` }} data-testid={`contact-btn-${p.prop_id || i}`}>
+              {t.contact}
+            </button>
+          </div>
         </div>
         <div style={{ marginTop: 10, fontSize: 11, color: "#CCC", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span>👤 {p.owner} · <span style={{ fontWeight: 600, color: p.role === "owner" ? "#1D6A43" : "#1B4F72" }}>{p.role === "owner" ? t.owner : t.agent}</span></span>

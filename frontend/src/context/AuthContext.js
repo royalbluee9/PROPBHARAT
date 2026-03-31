@@ -13,10 +13,10 @@ export function AuthProvider({ children }) {
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
 
-  const getHeaders = () => {
+  const getHeaders = useCallback(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     return token ? { Authorization: `Bearer ${token}` } : {};
-  };
+  }, []);
 
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -85,7 +85,9 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem(TOKEN_KEY);
     try {
       await axios.post(`${API}/auth/logout`, {}, { headers: { Authorization: `Bearer ${token}` } });
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("[Auth] Logout request failed:", err?.message);
+    }
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
   };

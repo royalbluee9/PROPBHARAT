@@ -2,12 +2,19 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-import os, logging, uuid, re, requests as http_req, time
+import os
+import logging
+import uuid
+import re
+import requests as http_req
+import time
 from pathlib import Path
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
-import bcrypt, cloudinary, cloudinary.utils
+import bcrypt
+import cloudinary
+import cloudinary.utils
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -196,12 +203,8 @@ async def complete_profile(body: PhoneUpdate, request: Request):
     return user
 
 # ─── PROPERTIES ROUTES ────────────────────────────────────────────────────────
-@api_router.get("/properties")
-async def get_properties(cat: Optional[str] = None, city: Optional[str] = None,
-                          type: Optional[str] = None, search: Optional[str] = None,
-                          bhk: Optional[int] = None, min_price: Optional[int] = None,
-                          max_price: Optional[int] = None,
-                          page: int = 1, limit: int = 20):
+def _build_property_query(cat, city, type, search, bhk, min_price, max_price):
+    """Extract query building logic to reduce get_properties complexity."""
     query = {}
     if cat and cat not in ["all", "sell"]:
         query["cat"] = cat
@@ -217,15 +220,26 @@ async def get_properties(cat: Optional[str] = None, city: Optional[str] = None,
                         {"locality": {"$regex": search, "$options": "i"}}]
     if min_price or max_price:
         price_cond = {}
-        if min_price: price_cond["$gte"] = min_price
-        if max_price: price_cond["$lte"] = max_price
+        if min_price:
+            price_cond["$gte"] = min_price
+        if max_price:
+            price_cond["$lte"] = max_price
         price_filter = {"$or": [{"price": price_cond}, {"rent": price_cond}]}
         if "$and" in query:
             query["$and"].append(price_filter)
         elif "$or" in query:
             query = {"$and": [query, price_filter]}
         else:
-            query.update({"$or": [{"price": price_cond}, {"rent": price_cond}]})
+            query.update(price_filter)
+    return query
+
+@api_router.get("/properties")
+async def get_properties(cat: Optional[str] = None, city: Optional[str] = None,
+                          type: Optional[str] = None, search: Optional[str] = None,
+                          bhk: Optional[int] = None, min_price: Optional[int] = None,
+                          max_price: Optional[int] = None,
+                          page: int = 1, limit: int = 20):
+    query = _build_property_query(cat, city, type, search, bhk, min_price, max_price)
     skip = (page - 1) * limit
     total = await db.properties.count_documents(query)
     props = await db.properties.find(query, {"_id": 0}).sort([("featured", -1), ("created_at", -1)]).skip(skip).limit(limit).to_list(limit)
@@ -299,7 +313,7 @@ async def delete_property(prop_id: str, request: Request):
 
 @api_router.get("/agent/leads")
 async def agent_leads(request: Request):
-    user = await get_current_user(request)
+    await get_current_user(request)
     leads = await db.leads.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return leads
 
@@ -388,7 +402,8 @@ async def add_favorite(request: Request):
     user = await get_current_user(request)
     body = await request.json()
     prop_id = body.get("prop_id")
-    if not prop_id: raise HTTPException(400, "prop_id required")
+    if not prop_id:
+        raise HTTPException(400, "prop_id required")
     if not await db.favorites.find_one({"user_id": user["user_id"], "prop_id": prop_id}):
         await db.favorites.insert_one({"user_id": user["user_id"], "prop_id": prop_id,
                                         "created_at": datetime.now(timezone.utc)})

@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import ImageUpload from "../components/ImageUpload";
 import axios from "axios";
-import { Plus, Trash2, Edit3, ArrowLeft, Home, FileText, BarChart2 } from "lucide-react";
+import { Plus, Trash2, Edit3, ArrowLeft, Home, FileText } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const CITIES = ["Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Ahmedabad", "Chennai", "Kolkata", "Pune", "Jaipur", "Surat", "Lucknow", "Nagpur", "Noida", "Gurugram", "Thane"];
@@ -17,18 +18,11 @@ export default function AgentDashboard() {
   const [dataLoading, setDataLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editProp, setEditProp] = useState(null);
-  const [form, setForm] = useState({ title: "", locality: "", city: "", type: "apartment", bhk: "", bath: "", area: "", price: "", rent: "", status: "ready", cat: "buy", amenities: [], img: "🏠", description: "" });
+  const [form, setForm] = useState({ title: "", locality: "", city: "", type: "apartment", bhk: "", bath: "", area: "", price: "", rent: "", status: "ready", cat: "buy", amenities: [], img: "🏠", images: [], description: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  useEffect(() => {
-    if (loading) return;
-    if (!user) { navigate("/"); return; }
-    if (user.role === "admin") { navigate("/admin"); return; }
-    fetchData();
-  }, [user, loading]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setDataLoading(true);
     try {
       const [propsRes, leadsRes] = await Promise.all([
@@ -37,16 +31,25 @@ export default function AgentDashboard() {
       ]);
       setProperties(propsRes.data);
       setLeads(leadsRes.data);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("[AgentDashboard] Failed to load data:", err?.message);
+    }
     setDataLoading(false);
-  };
+  }, [getHeaders]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { navigate("/"); return; }
+    if (user.role === "admin") { navigate("/admin"); return; }
+    fetchData();
+  }, [user, loading, navigate, fetchData]);
 
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const resetForm = () => { setForm({ title: "", locality: "", city: "", type: "apartment", bhk: "", bath: "", area: "", price: "", rent: "", status: "ready", cat: "buy", amenities: [], img: "🏠", description: "" }); setEditProp(null); };
+  const resetForm = () => { setForm({ title: "", locality: "", city: "", type: "apartment", bhk: "", bath: "", area: "", price: "", rent: "", status: "ready", cat: "buy", amenities: [], img: "🏠", images: [], description: "" }); setEditProp(null); };
 
   const openEdit = (p) => {
-    setForm({ title: p.title, locality: p.locality, city: p.city, type: p.type, bhk: p.bhk || "", bath: p.bath || "", area: p.area, price: p.price || "", rent: p.rent || "", status: p.status, cat: p.cat, amenities: p.amenities || [], img: p.img || "🏠", description: p.description || "" });
+    setForm({ title: p.title, locality: p.locality, city: p.city, type: p.type, bhk: p.bhk || "", bath: p.bath || "", area: p.area, price: p.price || "", rent: p.rent || "", status: p.status, cat: p.cat, amenities: p.amenities || [], img: p.img || "🏠", images: p.images || [], description: p.description || "" });
     setEditProp(p);
     setShowForm(true);
   };
@@ -161,7 +164,11 @@ export default function AgentDashboard() {
                 <div style={{ display: "grid", gap: 14 }}>
                   {properties.map(p => (
                     <div key={p.prop_id} style={{ background: "#FFFDF8", borderRadius: 16, padding: "18px 20px", border: "1px solid #EDE5D5", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                      <div style={{ fontSize: 36 }}>{p.img || "🏠"}</div>
+                      <div style={{ width: 48, height: 48, borderRadius: 10, overflow: "hidden", background: "#F5F0E8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {(p.images && p.images.length > 0)
+                          ? <img src={p.images[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <span style={{ fontSize: 28 }}>{p.img || "🏠"}</span>}
+                      </div>
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ fontSize: 16, fontWeight: 700, color: "#1C1C1C" }}>{p.title}</div>
                         <div style={{ fontSize: 13, color: "#888" }}>📍 {p.locality}, {p.city} · {p.type}</div>
@@ -255,8 +262,9 @@ export default function AgentDashboard() {
                 <input className="pb-input" placeholder="BHK" type="number" value={form.bhk} onChange={e => upd("bhk", e.target.value)} />
                 <input className="pb-input" placeholder="Baths" type="number" value={form.bath} onChange={e => upd("bath", e.target.value)} />
                 <input className="pb-input" placeholder="Area (sq.ft)*" type="number" value={form.area} onChange={e => upd("area", e.target.value)} data-testid="prop-area" />
-                <input className="pb-input" placeholder="Image emoji" value={form.img} onChange={e => upd("img", e.target.value)} />
+                <input className="pb-input" placeholder="Icon emoji" value={form.img} onChange={e => upd("img", e.target.value)} title="Fallback emoji if no image uploaded" />
               </div>
+              <ImageUpload images={form.images} onChange={imgs => upd("images", imgs)} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <input className="pb-input" placeholder="Price (₹)" type="number" value={form.price} onChange={e => upd("price", e.target.value)} />
                 <input className="pb-input" placeholder="Rent/mo (₹)" type="number" value={form.rent} onChange={e => upd("rent", e.target.value)} />

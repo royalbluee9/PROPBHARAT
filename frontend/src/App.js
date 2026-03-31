@@ -6,15 +6,16 @@ import PhoneComplete from "./components/PhoneComplete";
 import PropBharat from "./pages/PropBharat";
 import AgentDashboard from "./pages/AgentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import PropertyDetail from "./pages/PropertyDetail";
 import "./App.css";
 
 function AppRouter() {
   const location = useLocation();
-  // Detect Google OAuth callback (session_id in URL fragment) synchronously — prevents race conditions
   if (location.hash?.includes("session_id=")) return <AuthCallback />;
   return (
     <Routes>
       <Route path="/" element={<PropBharat />} />
+      <Route path="/property/:prop_id" element={<PropertyDetail />} />
       <Route path="/agent" element={<AgentDashboard />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />

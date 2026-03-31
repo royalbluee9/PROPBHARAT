@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import MapView from "../components/MapView";
 import axios from "axios";
-import { ArrowLeft, Heart, Share2, Phone, MessageCircle, BedDouble, Bath, Maximize2, MapPin, CheckCircle } from "lucide-react";
+import { ArrowLeft, Heart, MapPin } from "lucide-react";
+
+const CRORE = 10_000_000;
+const LAKH = 100_000;
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -20,25 +23,26 @@ export default function PropertyDetail() {
   const [isFav, setIsFav] = useState(false);
   const [showContact, setShowContact] = useState(false);
 
-  useEffect(() => {
-    fetchProp();
-    window.scrollTo(0, 0);
-  }, [prop_id]);
-
-  const fetchProp = async () => {
+  const fetchProp = useCallback(async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${API}/properties/${prop_id}`);
       setProp(res.data);
-      // Check favorites
       const favs = JSON.parse(localStorage.getItem("pb_favorites") || "[]");
       setIsFav(favs.includes(prop_id));
-      // Fetch similar
       const simRes = await axios.get(`${API}/properties`, { params: { city: res.data.city, type: res.data.type, limit: 4 } });
       setSimilar((simRes.data.properties || []).filter(p => p.prop_id !== prop_id).slice(0, 3));
-    } catch { navigate("/"); }
+    } catch (err) {
+      console.error("[PropertyDetail] Failed to load property:", err?.message);
+      navigate("/");
+    }
     setLoading(false);
-  };
+  }, [prop_id, navigate]);
+
+  useEffect(() => {
+    fetchProp();
+    window.scrollTo(0, 0);
+  }, [fetchProp]);
 
   const toggleFav = async () => {
     const favs = JSON.parse(localStorage.getItem("pb_favorites") || "[]");
@@ -49,7 +53,9 @@ export default function PropertyDetail() {
       try {
         if (isFav) await axios.delete(`${API}/favorites/${prop_id}`, { headers: getHeaders() });
         else await axios.post(`${API}/favorites`, { prop_id }, { headers: getHeaders() });
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error("[PropertyDetail] Favorites update failed:", err?.message);
+      }
     }
   };
 
@@ -61,10 +67,12 @@ export default function PropertyDetail() {
   const fmt = (price, rent) => {
     const v = price ?? rent;
     if (!v) return "Price on Request";
-    if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)} Cr`;
-    if (v >= 100000) return `₹${(v / 100000).toFixed(1)} L`;
+    if (v >= CRORE) return `₹${(v / CRORE).toFixed(2)} Cr`;
+    if (v >= LAKH) return `₹${(v / LAKH).toFixed(1)} L`;
     return `₹${v.toLocaleString("en-IN")}`;
   };
+
+  const mapProps = useMemo(() => (prop ? [prop] : []), [prop]);
 
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "#F5F0E8", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -108,8 +116,8 @@ export default function PropertyDetail() {
                   <img src={prop.images[imgIdx]} alt={prop.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} data-testid="property-hero-image" />
                   {prop.images.length > 1 && (
                     <div style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6 }}>
-                      {prop.images.map((_, i) => (
-                        <button key={i} onClick={() => setImgIdx(i)}
+                      {prop.images.map((url, i) => (
+                        <button key={url} onClick={() => setImgIdx(i)}
                           style={{ width: i === imgIdx ? 24 : 8, height: 8, borderRadius: 4, background: i === imgIdx ? "#fff" : "rgba(255,255,255,.5)", border: "none", cursor: "pointer", transition: "all .2s" }} />
                       ))}
                     </div>
@@ -137,7 +145,7 @@ export default function PropertyDetail() {
             {hasImages && prop.images.length > 1 && (
               <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto" }}>
                 {prop.images.map((url, i) => (
-                  <img key={i} src={url} alt="" onClick={() => setImgIdx(i)}
+                  <img key={url} src={url} alt="" onClick={() => setImgIdx(i)}
                     style={{ width: 72, height: 56, objectFit: "cover", borderRadius: 10, cursor: "pointer", border: `2px solid ${i === imgIdx ? accent : "transparent"}`, flexShrink: 0 }} />
                 ))}
               </div>
@@ -186,7 +194,7 @@ export default function PropertyDetail() {
             {prop.lat && prop.lng && (
               <div style={{ background: "#FFFDF8", borderRadius: 20, padding: "24px", border: "1px solid #EDE5D5", marginBottom: 16 }}>
                 <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "#1C1C1C" }}>Location</h3>
-                <MapView properties={[prop]} />
+                <MapView properties={mapProps} />
               </div>
             )}
           </div>
